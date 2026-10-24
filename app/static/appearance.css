@@ -4,8 +4,8 @@ body { isolation: isolate; }
 #background-scene { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; background: var(--page); }
 .background-photo { position: absolute; width: 100%; height: 100%; inset: 0; object-fit: cover; opacity: 0; transition: opacity 1.2s ease; }
 .background-photo.visible { opacity: 1; }
-#background-scene::after { content: ''; position: absolute; inset: 0; background: var(--photo-tint, #f7f9f8b8); opacity: 0; transition: opacity 1s; }
-:root[data-background="landscape"] #background-scene::after { opacity: 1; }
+#background-scene::after { content: ''; position: absolute; inset: 0; background: var(--page); opacity: 0; transition: opacity .2s ease; }
+:root[data-background="landscape"][data-photo-overlay="soft"] #background-scene::after { opacity: .6; }
 .ambient-light { position: absolute; inset: 0; }
 .ambient-light::before, .ambient-light::after { content: ''; position: absolute; width: 65vw; height: 70vh; border-radius: 50%; opacity: 0; }
 :root[data-theme="glass"] {
@@ -21,7 +21,7 @@ body { isolation: isolate; }
 :root[data-theme="paper"] {
   --page: #f1ebdf; --surface: #fffaf0; --text: #483e32; --muted: #7f715e;
   --green: #7b5c40; --accent-hover: #5e4129; --soft: #ede2c9;
-  --line: #d7cbb4; --border-hover: #a68b63; --focus: #a68b63; --shadow: #60462515; --photo-tint: #f1ebdfbf;
+  --line: #d7cbb4; --border-hover: #a68b63; --focus: #a68b63; --shadow: #60462515;
 }
 :root[data-theme="paper"] .ambient-light { background-image: repeating-linear-gradient(0deg, #735c3210 0, #735c3210 1px, transparent 1px, transparent 5px); opacity: .5; }
 :root[data-theme="paper"] .link-card { border-radius: 3px 11px 5px 8px; border-color: #d7cbb4; background-image: repeating-linear-gradient(90deg, transparent, transparent 3px, #72522a04 3px, #72522a04 4px); box-shadow: 2px 3px 0 #d9ceb34d; }
@@ -29,7 +29,7 @@ body { isolation: isolate; }
 :root[data-theme="paper"] .site-icon { border-radius: 5px; }
 :root[data-theme="aurora"], :root[data-theme="terminal"] {
   color-scheme: dark; --on-accent: #102b29; --backdrop: #0009; --shadow: #0004;
-  --danger: #ffaaa0; --danger-soft: #492c30; --photo-tint: #071421bf;
+  --danger: #ffaaa0; --danger-soft: #492c30;
   --tone-blue-bg: #253c50; --tone-blue: #accde9; --tone-amber-bg: #3e3930; --tone-amber: #e3c498;
   --tone-violet-bg: #3b3150; --tone-violet: #d5b5f2; --tone-cyan-bg: #253f43; --tone-cyan: #a2d9da;
 }
@@ -46,7 +46,7 @@ body { isolation: isolate; }
 :root[data-theme="sunset"] {
   --page: #fcf0e9; --surface: #fff8f2; --text: #5b3e3a; --muted: #896d69;
   --green: #b1585b; --accent-hover: #8e3e46; --soft: #f6ded6;
-  --line: #f3ddd1; --border-hover: #d8a799; --focus: #ce8d85; --shadow: #9e5e4320; --photo-tint: #fcf0e9b8;
+  --line: #f3ddd1; --border-hover: #d8a799; --focus: #ce8d85; --shadow: #9e5e4320;
 }
 :root[data-theme="sunset"] .ambient-light::before { opacity: .75; background: radial-gradient(ellipse, #f4c693, transparent 65%); top: -20%; right: -20%; animation: float-glow 30s ease-in-out infinite alternate; }
 :root[data-theme="sunset"] .ambient-light::after { opacity: .65; background: radial-gradient(ellipse, #e7b5c7, transparent 65%); bottom: -20%; left: -20%; animation: float-glow 36s ease-in-out infinite alternate-reverse; }
@@ -63,8 +63,7 @@ body { isolation: isolate; }
 :root[data-theme="terminal"] :is(.link-card,.badge,.site-icon,.search-wrap,.org-tabs button,.section-networks) { border-radius: 3px; }
 :root[data-theme="terminal"] .link-card { border-style: dashed; }
 :root[data-theme="terminal"] .badge { border: 1px solid #547e60; background: transparent; color: #b2d8bd; padding: 0 5px; }
-:root[data-theme="ocean"], :root[data-theme="graphite"] { --photo-tint: #101827bc; }
-:root[data-background="landscape"] .ambient-light { opacity: .25; }
+:root[data-background="landscape"] .ambient-light { display: none; }
 @keyframes float-glow { from { transform: translate3d(-3%, -2%, 0) scale(1); } to { transform: translate3d(12%, 8%, 0) scale(1.15); } }
 @keyframes aurora-drift { from { transform: translate3d(-5%, 3%, 0) rotate(-12deg) scale(1); } to { transform: translate3d(24%, -8%, 0) rotate(18deg) scale(1.3); } }
 @keyframes scan-line { from { transform: translateY(-5vh); } to { transform: translateY(105vh); } }

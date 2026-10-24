@@ -118,6 +118,6 @@ q 为名称、说明、网址的关键词包含匹配，支持中文与大小写
 
 ## 每日网络背景
 
-`GET /api/v1/backgrounds` 返回 `data.photos`（今日、最近 30 张记录及 8 张备用图片）、`daily_id`、`status`（ready/stale/fallback）、`refresh_time`、`timezone`、`next_refresh_at`、`enabled`。网络照片有 `downloaded_at`、`source_id`、`sha256`、摄影者、来源与许可；其 image 为同域认证图片路径。备用图片为公开静态资源。
+`GET /api/v1/backgrounds` 返回 `data.photos`（今日、最近 30 张记录及 8 张备用图片）、`daily_id`、`status`（ready/stale/fallback）、`refresh_time`、`timezone`、`next_refresh_at`、`enabled`。网络照片有 `downloaded_at`、`source_id`、`sha256`、实际 `width` / `height`、摄影者、来源与许可；其 image 为同域认证图片路径。备用图片为公开静态资源。
 
 定时抓取在服务器运行，不由 GET 请求触发，不接受任意远程网址。无缓存或错过更新时间时启动后补取；失败保留旧图，每 10 分钟重试。只请求允许的 HTTPS 图源主机，不转发导航 Cookie 或令牌。背景缓存位于 `data/background-cache/`，不改变导航数据库结构，删除缓存后可自动重建。

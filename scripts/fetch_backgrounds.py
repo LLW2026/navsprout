@@ -2,40 +2,25 @@
 """Maintain a small, attributed landscape collection from Lorem Picsum.
 
 Uses the documented public endpoints, not the Unsplash API. No credentials.
-The application itself serves these files locally and makes no remote requests.
+The app serves these fallback files locally; daily images are fetched separately.
 """
 import concurrent.futures
+import hashlib
 import json
 import os
 from pathlib import Path
+import sys
 import tempfile
 from urllib.parse import urlsplit
-from urllib.request import HTTPRedirectHandler, Request, build_opener
 
-ROOT = Path(__file__).resolve().parents[1] / 'app/static/backgrounds'
-PHOTOS = [('10', '林间湖畔'), ('15', '山谷飞瀑'), ('28', '森林小径'), ('29', '山野远眺'),
-          ('1015', '河谷清晨'), ('1016', '云上群山'), ('1018', '山间薄雾'), ('1039', '溪谷流水')]
+PROJECT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(PROJECT))
+from app.backgrounds import MAX_IMAGE, download as fetch, jpeg_dimensions, photo_size
 
-
-def safe_url(url):
-    p = urlsplit(url)
-    if p.scheme != 'https' or p.hostname not in {'picsum.photos', 'fastly.picsum.photos'} or p.username or p.password or p.port not in (None, 443):
-        raise ValueError('图源跳转到未允许的地址')
-    return url
-
-
-class Redirects(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return super().redirect_request(req, fp, code, msg, headers, safe_url(newurl))
-
-
-def fetch(url, limit):
-    opener = build_opener(Redirects())
-    with opener.open(Request(safe_url(url), headers={'User-Agent': 'PersonalNav-Backgrounds/1.0'}), timeout=25) as r:
-        content = r.read(limit + 1)
-        if len(content) > limit:
-            raise ValueError('图片或元数据超过大小限制')
-        return content
+ROOT = PROJECT / 'app/static/backgrounds'
+PHOTOS = [('28', '森林小径'), ('29', '山野远眺'), ('1015', '河谷清晨'),
+          ('1016', '云上群山'), ('1018', '山间薄雾'), ('1039', '溪谷流水'),
+          ('1011', '湖畔行舟'), ('51', '海天远景')]
 
 
 def download(photo):
@@ -44,12 +29,17 @@ def download(photo):
     source = info['url']
     if urlsplit(source).scheme != 'https' or urlsplit(source).hostname != 'unsplash.com':
         raise ValueError('图片缺少 Unsplash 来源')
-    image = fetch(f'https://picsum.photos/id/{pid}/1600/1000.jpg', 4 * 1024 * 1024)
-    if not image.startswith(b'\xff\xd8\xff') or not image.endswith(b'\xff\xd9'):
-        raise ValueError('图源未返回完整 JPEG')
+    size = photo_size(info)
+    if not size:
+        raise ValueError('备用图片原始分辨率不足 4K')
+    width, height = size
+    image = fetch(f'https://picsum.photos/id/{pid}/{width}/{height}.jpg', MAX_IMAGE)
+    if jpeg_dimensions(image) != size:
+        raise ValueError('图片实际分辨率与图源不符')
     return {'id': pid, 'title': title, 'author': info['author'], 'source': source,
             'provider': 'Lorem Picsum / Unsplash', 'license': 'https://unsplash.com/license',
-            'image': f'/static/backgrounds/{pid}.jpg'}, image
+            'width': width, 'height': height, 'sha256': hashlib.sha256(image).hexdigest(),
+            'image': f'/static/backgrounds/{pid}.jpg?v=2'}, image
 
 
 def main():

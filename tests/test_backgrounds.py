@@ -15,13 +15,13 @@ from app.main import create_app
 from test_core import config
 
 FALLBACK = Path(__file__).parents[1] / 'app/static/backgrounds/catalog.json'
-JPEG = b'\xff\xd8\xffdaily-test\xff\xd9'
+JPEG = bytes.fromhex('ffd8 ffc0 0011 08 0d05 1388 03 012200 021101 031101 ffd9')
 
 
 def photo(pid):
     return {'id':pid, 'source_id':pid.rsplit('-',1)[-1], 'author':'测试摄影者',
             'source':'https://unsplash.com/photos/test', 'license':'https://unsplash.com/license',
-            'sha256':hashlib.sha256(JPEG).hexdigest()}, JPEG
+            'width':5000, 'height':3333, 'sha256':hashlib.sha256(JPEG).hexdigest()}, JPEG
 
 
 def test_daily_boundary_once_per_day_and_cache_survives_restart(tmp_path, monkeypatch):
@@ -101,8 +101,8 @@ def test_remote_metadata_duplicate_rejection_and_jpeg_validation(monkeypatch):
     def remote(url,limit):
         if url.endswith('/info'):
             pid='1' if '-0/' in url else '2'
-            return json.dumps({'id':pid,'author':'摄影者','url':'https://unsplash.com/photos/photo-'+pid}).encode()
-        assert url=='https://picsum.photos/id/2/1600/1000.jpg' and limit==MAX_IMAGE
+            return json.dumps({'id':pid,'author':'摄影者','url':'https://unsplash.com/photos/photo-'+pid, 'width':5000, 'height':3333}).encode()
+        assert url=='https://picsum.photos/id/2/5000/3333.jpg' and limit==MAX_IMAGE
         return JPEG
     monkeypatch.setattr(backgrounds,'download',remote)
     saved,data=fetch_photo('2026-10-24',{'1'})
@@ -138,3 +138,56 @@ def test_background_api_requires_login_and_scheduler_runs_without_browser(config
 @pytest.mark.parametrize('value',['24:00','6:00','06:60','wrong'])
 def test_schedule_configuration_validation(tmp_path,value):
     with pytest.raises(RuntimeError):Backgrounds(tmp_path,FALLBACK,value)
+
+
+def test_jpeg_frame_size_and_bad_headers():
+    assert backgrounds.jpeg_dimensions(JPEG)==(5000,3333)
+    assert backgrounds.jpeg_dimensions(JPEG.replace(b'\xff\xc0',b'\xff\xc2'))==(5000,3333)
+    for broken in [b'html', b'\xff\xd8\xff\xd9', JPEG[:-2], b'\xff\xd8\xff\xe0\xff\xff\xff\xd9']:
+        with pytest.raises(ValueError):backgrounds.jpeg_dimensions(broken)
+
+
+def test_small_and_portrait_sources_are_skipped_without_upscaling(monkeypatch):
+    calls=[]
+    sizes=[(1600,1000),(5000,6000),(5000,3333)]
+    def remote(url,limit):
+        if url.endswith('/info'):
+            index=int(url.split('-')[-1].split('/')[0]);width,height=sizes[index]
+            return json.dumps({'id':str(index),'author':'测试','url':'https://unsplash.com/photos/test','width':width,'height':height}).encode()
+        calls.append(url);return JPEG
+    monkeypatch.setattr(backgrounds,'download',remote)
+    saved,_=fetch_photo('2026-10-24',set())
+    assert saved['width']==5000 and saved['height']==3333
+    assert calls==['https://picsum.photos/id/2/5000/3333.jpg']
+    assert backgrounds.photo_size({'width':4000,'height':2670})==(4000,2670)
+    assert backgrounds.photo_size({'width':6000,'height':4000})==(5000,3333)
+    assert backgrounds.photo_size({}) is None
+    assert backgrounds.photo_size({'width':8000,'height':2500}) is None
+
+
+def test_returned_jpeg_must_match_native_size(monkeypatch):
+    def remote(url,limit):
+        if url.endswith('/info'):
+            return json.dumps({'id':'2','author':'测试','url':'https://unsplash.com/photos/test','width':4000,'height':2670}).encode()
+        return JPEG  # Actual 5000x3333 differs from advertised/requested 4000x2670.
+    monkeypatch.setattr(backgrounds,'download',remote)
+    with pytest.raises(ValueError,match='实际分辨率'):fetch_photo('2026-10-24',set())
+
+
+def test_old_low_resolution_cache_upgrades_same_day_without_wait(tmp_path,monkeypatch):
+    at=datetime(2026,10,24,7,tzinfo=CHINA)
+    old,_=photo('2026-10-24-1');old.update(width=1600,height=1000,image='/api/v1/backgrounds/2026-10-24-1.jpg')
+    (tmp_path/'2026-10-24-1.jpg').write_bytes(JPEG)
+    (tmp_path/'index.json').write_text(json.dumps({'photos':[old],'last_attempt':at.timestamp(),'last_period':'2026-10-24','failed':False}))
+    library=Backgrounds(tmp_path,FALLBACK)
+    assert library.catalog(at)['status']=='fallback'
+    assert not any(p['id']==old['id'] for p in library.catalog(at)['photos'])
+    fetch=Mock(return_value=photo('2026-10-24-2'))
+    monkeypatch.setattr(backgrounds,'fetch_photo',fetch)
+    assert library.refresh_if_due(at)
+    current=library.catalog(at)
+    assert current['status']=='ready' and current['photos'][0]['width']==5000
+    assert current['photos'][0]['image'].endswith('?v=2')
+    restarted=Backgrounds(tmp_path,FALLBACK)
+    assert not restarted.refresh_if_due(at+timedelta(minutes=1))
+    assert fetch.call_count==1

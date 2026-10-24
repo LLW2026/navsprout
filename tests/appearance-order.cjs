@@ -137,13 +137,27 @@ async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await new P
    await page.locator('#open-background').click();await page.locator('#background-mode').selectOption('daily');
    await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
    let first=await page.locator('.background-photo.visible').getAttribute('src');
-   assert.ok(await page.locator('.background-photo.visible').evaluate(img=>img.complete&&img.naturalWidth===1600));
+   assert.ok(await page.locator('.background-photo.visible').evaluate(img=>img.complete&&img.naturalWidth>=3840&&img.naturalHeight>=2160));
    assert.ok((await page.locator('#background-credit').getAttribute('href')).startsWith('https://unsplash.com/photos/'));
    await page.locator('#next-background').click();await page.waitForFunction(src=>document.querySelector('.background-photo.visible').getAttribute('src')!==src,first);
    const second=await page.locator('.background-photo.visible').getAttribute('src');
    await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');assert.equal(await page.locator('.background-photo.visible').getAttribute('src'),second);
    const manifest=(await (await page.request.get(base+'/api/v1/backgrounds')).json()).data;assert.ok(manifest.photos.length>=8);if(!isolated){assert.equal(manifest.status,'ready');assert.ok(manifest.daily_id);assert.ok(manifest.photos[0].downloaded_at);}
    for(const photo of manifest.photos.slice(0,9)){const image=await page.request.get(base+photo.image);assert.equal(image.status(),200);assert.ok((await image.body()).length>20000);}
+  });
+  await check('背景遮罩即时切换、刷新保留并在标签页间同步',async()=>{
+   await page.locator('#open-background').click();
+   assert.equal(await page.locator('#background-overlay').inputValue(),'none');
+   const source=await page.locator('.background-photo.visible').getAttribute('src');
+   await page.locator('#background-overlay').selectOption('soft');
+   assert.equal(await page.locator('html').getAttribute('data-photo-overlay'),'soft');
+   assert.equal(await page.locator('.background-photo.visible').getAttribute('src'),source);
+   await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
+   assert.equal(await page.locator('html').getAttribute('data-photo-overlay'),'soft');
+   const other=await context.newPage();await other.goto(base);await other.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
+   await page.locator('#open-background').click();await page.locator('#background-overlay').selectOption('none');
+   await other.waitForFunction(()=>document.documentElement.dataset.photoOverlay==='none');await other.close();
+   await page.keyboard.press('Escape');
   });
   await check('自动轮播按时切换，关闭后停止，并在跨标签页同步',async()=>{
    await page.locator('#open-background').click();await page.locator('#background-interval').selectOption('1');
@@ -172,10 +186,10 @@ async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await new P
    assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.ambient-light'),'::after').animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
   });
   await check('图片失败保留主题背景，可重试恢复且不向第三方发请求',async()=>{
-   await page.route(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.jpg$/,route=>route.abort());
+   await page.route(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.jpg(?:\?v=2)?$/,route=>route.abort());
    await page.locator('#background-mode').selectOption('daily');await page.locator('#background-status').waitFor({state:'visible'});
    assert.equal(await page.locator('html').getAttribute('data-background'),'theme');
-   await page.unroute(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.jpg$/);await page.locator('#next-background').click();
+   await page.unroute(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.jpg(?:\?v=2)?$/);await page.locator('#next-background').click();
    await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
    await page.locator('#background-mode').selectOption('theme');assert.deepEqual(externalRequests,[]);
   });

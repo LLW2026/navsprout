@@ -11,14 +11,14 @@
       panel.append(button);
     }
   });
-  const defaults = {mode: 'theme', interval: 1440, motion: true, id: '', daily_id: '', changed: 0};
+  const defaults = {mode: 'theme', interval: 1440, motion: true, overlay: 'none', id: '', daily_id: '', changed: 0};
   const intervals = [0, 1, 5, 15, 60, 1440];
   function read() {
     try {
       const value = JSON.parse(localStorage.getItem('nav-background')) || {};
       return {mode: ['daily','landscape'].includes(value.mode) ? 'daily' : 'theme',
         interval: intervals.includes(value.interval) ? value.interval : 1440,
-        motion: value.motion !== false, id: typeof value.id === 'string' ? value.id : '',
+        motion: value.motion !== false, overlay: value.overlay === 'soft' ? 'soft' : 'none', id: typeof value.id === 'string' ? value.id : '',
         daily_id: typeof value.daily_id === 'string' ? value.daily_id : '',
         changed: Number.isFinite(value.changed) ? Math.max(0, Math.min(value.changed, Date.now())) : 0};
     } catch { return {...defaults}; }
@@ -27,13 +27,16 @@
   let catalogRequest, catalogMeta = {}, pollTimer;
   const photos = [...document.querySelectorAll('.background-photo')];
   const mode = document.querySelector('#background-mode'), interval = document.querySelector('#background-interval');
+  const overlay = document.querySelector('#background-overlay');
   const motion = document.querySelector('#background-motion'), next = document.querySelector('#next-background');
   const credit = document.querySelector('#background-credit'), status = document.querySelector('#background-status');
   const panel = document.querySelector('#background-panel'), trigger = document.querySelector('#open-background');
   function persist() { try { localStorage.setItem('nav-background', JSON.stringify(settings)); } catch {} }
   function feedback(text = '') { status.textContent = text; status.hidden = !text; }
   function syncControls() {
-    mode.value = settings.mode; interval.value = String(settings.interval); motion.checked = settings.motion;
+    mode.value = settings.mode; interval.value = String(settings.interval); motion.checked = settings.motion; overlay.value = settings.overlay;
+    document.querySelector('#background-overlay-label').hidden = settings.mode !== 'daily';
+    root.dataset.photoOverlay = settings.overlay;
     next.hidden = document.querySelector('#background-interval-label').hidden = settings.mode !== 'daily';
     root.dataset.motion = settings.motion ? 'on' : 'off';
   }
@@ -54,8 +57,8 @@
     }).then(result => {
       const data = result.data;
       const valid = data.photos.filter(p => {
-        const daily = /^\d{4}-\d\d-\d\d-\d+$/.test(p.id) && p.image === `/api/v1/backgrounds/${p.id}.jpg`;
-        const fallback = /^\d+$/.test(p.id) && p.image === `/static/backgrounds/${p.id}.jpg`;
+        const daily = /^\d{4}-\d\d-\d\d-\d+$/.test(p.id) && [ `/api/v1/backgrounds/${p.id}.jpg`, `/api/v1/backgrounds/${p.id}.jpg?v=2` ].includes(p.image);
+        const fallback = /^\d+$/.test(p.id) && [ `/static/backgrounds/${p.id}.jpg`, `/static/backgrounds/${p.id}.jpg?v=2` ].includes(p.image);
         return (daily || fallback) && new URL(p.source).origin === 'https://unsplash.com';
       });
       if (!valid.length) throw new Error(); catalog = valid; catalogMeta = data;
@@ -99,7 +102,7 @@
       photos[target].src = photo.image;
       let timeout;
       try {
-        await Promise.race([photos[target].decode(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error()), 12000); })]);
+        await Promise.race([photos[target].decode(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error()), 30000); })]);
       } finally { clearTimeout(timeout); }
       if (id !== revision) return;
       photos[target].classList.add('visible');
@@ -120,6 +123,7 @@
   trigger.onclick = () => { const open = panel.hidden; panel.hidden = !open; trigger.setAttribute('aria-expanded', String(open)); };
   mode.onchange = () => { settings.mode = mode.value; persist(); display(); poll(); };
   interval.onchange = () => { settings.interval = Number(interval.value); settings.changed = Date.now(); persist(); schedule(); };
+  overlay.onchange = () => { settings.overlay = overlay.value; persist(); syncControls(); };
   motion.onchange = () => { settings.motion = motion.checked; persist(); syncControls(); };
   next.onclick = () => display(true);
   document.addEventListener('click', event => { if (!event.target.closest('.background-picker')) close(); });

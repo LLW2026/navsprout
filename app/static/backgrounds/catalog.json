@@ -2,31 +2,16 @@
   "version": 1,
   "photos": [
     {
-      "id": "10",
-      "title": "林间湖畔",
-      "author": "Paul Jarvis",
-      "source": "https://unsplash.com/photos/6J--NXulQCs",
-      "provider": "Lorem Picsum / Unsplash",
-      "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/10.jpg"
-    },
-    {
-      "id": "15",
-      "title": "山谷飞瀑",
-      "author": "Paul Jarvis",
-      "source": "https://unsplash.com/photos/NYDo21ssGao",
-      "provider": "Lorem Picsum / Unsplash",
-      "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/15.jpg"
-    },
-    {
       "id": "28",
       "title": "森林小径",
       "author": "Jerry Adney",
       "source": "https://unsplash.com/photos/_WiFMBRT7Aw",
       "provider": "Lorem Picsum / Unsplash",
       "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/28.jpg"
+      "width": 4928,
+      "height": 3264,
+      "sha256": "9ebb999f2bdf12c02c27d55550deba83f08d9ef81561b6121582a60b6eb47fb5",
+      "image": "/static/backgrounds/28.jpg?v=2"
     },
     {
       "id": "29",
@@ -35,7 +20,10 @@
       "source": "https://unsplash.com/photos/V0yAek6BgGk",
       "provider": "Lorem Picsum / Unsplash",
       "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/29.jpg"
+      "width": 4000,
+      "height": 2670,
+      "sha256": "23c715876193d457f783e0b43ee63fa6c7231a5fb9d11cfd60933dccb1756fa4",
+      "image": "/static/backgrounds/29.jpg?v=2"
     },
     {
       "id": "1015",
@@ -44,7 +32,10 @@
       "source": "https://unsplash.com/photos/-oWyJoSqBRM",
       "provider": "Lorem Picsum / Unsplash",
       "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/1015.jpg"
+      "width": 5000,
+      "height": 3333,
+      "sha256": "e8e2afb87af3be36db8e3a9cd3c821b752c0a181d74a9452312a40dbb8916f27",
+      "image": "/static/backgrounds/1015.jpg?v=2"
     },
     {
       "id": "1016",
@@ -53,7 +44,10 @@
       "source": "https://unsplash.com/photos/_h7aBovKia4",
       "provider": "Lorem Picsum / Unsplash",
       "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/1016.jpg"
+      "width": 3844,
+      "height": 2563,
+      "sha256": "37f0fb0991d0864d12ad30d1f05be216d4264f921a17961cea0dee232660ebf7",
+      "image": "/static/backgrounds/1016.jpg?v=2"
     },
     {
       "id": "1018",
@@ -62,7 +56,10 @@
       "source": "https://unsplash.com/photos/Kt5hRENuotI",
       "provider": "Lorem Picsum / Unsplash",
       "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/1018.jpg"
+      "width": 3914,
+      "height": 2935,
+      "sha256": "a6019b256eed84927872d12a69fe16b82225ae8f7fca6e38e40ad7d50f7c30e2",
+      "image": "/static/backgrounds/1018.jpg?v=2"
     },
     {
       "id": "1039",
@@ -71,7 +68,34 @@
       "source": "https://unsplash.com/photos/VB-w_3dnyvI",
       "provider": "Lorem Picsum / Unsplash",
       "license": "https://unsplash.com/license",
-      "image": "/static/backgrounds/1039.jpg"
+      "width": 5000,
+      "height": 3337,
+      "sha256": "d1ad5276644aa5932584ebe6f861b34fefd1dbbc7a5651cc44ce767995f87514",
+      "image": "/static/backgrounds/1039.jpg?v=2"
+    },
+    {
+      "id": "1011",
+      "title": "湖畔行舟",
+      "author": "Roberto Nickson",
+      "source": "https://unsplash.com/photos/7BjmDICVloE",
+      "provider": "Lorem Picsum / Unsplash",
+      "license": "https://unsplash.com/license",
+      "width": 5000,
+      "height": 3333,
+      "sha256": "b30294eff0335b49d4e159f78cceb95d15176560adbd02cf35df4fd87cee3128",
+      "image": "/static/backgrounds/1011.jpg?v=2"
+    },
+    {
+      "id": "51",
+      "title": "海天远景",
+      "author": "Ireneuilia",
+      "source": "https://unsplash.com/photos/knYQ6arClBE",
+      "provider": "Lorem Picsum / Unsplash",
+      "license": "https://unsplash.com/license",
+      "width": 5000,
+      "height": 3333,
+      "sha256": "f4b4aff25a1de56f40981b065de2e6a0875bad813f5a34114c95b759f6b52924",
+      "image": "/static/backgrounds/51.jpg?v=2"
     }
   ]
 }

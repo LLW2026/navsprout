@@ -11,7 +11,8 @@ from urllib.parse import urlsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 CHINA = timezone(timedelta(hours=8))
-MAX_IMAGE = 6 * 1024 * 1024
+MAX_IMAGE = 16 * 1024 * 1024
+MIN_WIDTH, MIN_HEIGHT, MAX_WIDTH = 3840, 2160, 5000
 
 
 def trusted_url(url):
@@ -28,30 +29,72 @@ class Redirects(HTTPRedirectHandler):
 
 def download(url, limit):
     # This independent client never forwards browser headers or navigation credentials.
-    with build_opener(Redirects()).open(Request(trusted_url(url), headers={'User-Agent': 'PersonalNav-DailyBackground/1.0'}), timeout=18) as response:
+    with build_opener(Redirects()).open(Request(trusted_url(url), headers={'User-Agent': 'PersonalNav-DailyBackground/1.0'}), timeout=30) as response:
         data = response.read(limit + 1)
         if len(data) > limit:
             raise ValueError('图源响应过大')
         return data
 
 
+def jpeg_dimensions(data):
+    """Read JPEG frame dimensions without decoding pixels or adding dependencies."""
+    if not data.startswith(b'\xff\xd8') or not data.endswith(b'\xff\xd9'):
+        raise ValueError('图源未返回完整 JPEG')
+    offset = 2
+    while offset + 4 <= len(data):
+        if data[offset] != 0xff:
+            raise ValueError('JPEG 格式不正确')
+        while offset < len(data) and data[offset] == 0xff:
+            offset += 1
+        if offset >= len(data):
+            break
+        marker = data[offset]
+        offset += 1
+        if marker in (0xd8, 0x01) or 0xd0 <= marker <= 0xd7:
+            continue
+        if marker in (0xda, 0xd9) or offset + 2 > len(data):
+            break
+        length = int.from_bytes(data[offset:offset + 2], 'big')
+        if length < 2 or offset + length > len(data):
+            break
+        if marker in {0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf} and length >= 8:
+            height = int.from_bytes(data[offset + 3:offset + 5], 'big')
+            width = int.from_bytes(data[offset + 5:offset + 7], 'big')
+            if width and height:
+                return width, height
+            break
+        offset += length
+    raise ValueError('无法读取 JPEG 分辨率')
+
+
+def photo_size(info):
+    width, height = info.get('width'), info.get('height')
+    if not isinstance(width, int) or not isinstance(height, int) or width < MIN_WIDTH or height < MIN_HEIGHT or width <= height:
+        return None
+    target_width = min(width, MAX_WIDTH)
+    target_height = round(height * target_width / width)
+    return (target_width, target_height) if target_height >= MIN_HEIGHT else None
+
+
 def fetch_photo(period, recent):
-    for attempt in range(5):
-        seed = f'navsprout-{period}-{attempt}'
+    for attempt in range(12):
+        seed = f'navsprout-{period}-hd-{attempt}'
         info = json.loads(download(f'https://picsum.photos/seed/{seed}/info', 32768))
         pid = str(info['id'])
         source = urlsplit(info['url'])
         if not re.fullmatch(r'\d{1,6}', pid) or source.scheme != 'https' or source.hostname != 'unsplash.com' or source.username or source.password:
             raise ValueError('图源元数据不完整')
-        if pid in recent:
+        size = photo_size(info)
+        if pid in recent or not size:
             continue
-        data = download(f'https://picsum.photos/id/{pid}/1600/1000.jpg', MAX_IMAGE)
-        if not data.startswith(b'\xff\xd8\xff') or not data.endswith(b'\xff\xd9'):
-            raise ValueError('图源未返回完整 JPEG')
+        width, height = size
+        data = download(f'https://picsum.photos/id/{pid}/{width}/{height}.jpg', MAX_IMAGE)
+        if jpeg_dimensions(data) != size:
+            raise ValueError('图片实际分辨率与图源不符')
         return {'id': f'{period}-{pid}', 'source_id': pid, 'author': str(info['author'])[:160],
-                'source': info['url'], 'license': 'https://unsplash.com/license',
+                'source': info['url'], 'license': 'https://unsplash.com/license', 'width': width, 'height': height,
                 'provider': 'Lorem Picsum / Unsplash', 'sha256': hashlib.sha256(data).hexdigest()}, data
-    raise ValueError('图源暂未提供新的图片')
+    raise ValueError('图源暂未提供新的高清图片')
 
 
 class Backgrounds:
@@ -102,13 +145,13 @@ class Backgrounds:
             return False
         # Reads remain responsive while the network fetch runs outside the state lock.
         with self.lock:
-            if self.state.get('fetching') or (self.state['last_period'] == period and self.state['photos']) or at.timestamp() - self.state['last_attempt'] < 600:
+            if self.state.get('fetching') or (self.state['last_period'] == period and self.state['photos'] and photo_size(self.state['photos'][0])) or (self.state['failed'] and at.timestamp() - self.state['last_attempt'] < 600):
                 return False
             self.state.update(last_attempt=at.timestamp(), fetching=True)
             recent = {p['source_id'] for p in self.state['photos']}
         try:
             photo, image = fetch_photo(period, recent)
-            photo.update(image=f"/api/v1/backgrounds/{photo['id']}.jpg", downloaded_at=at.isoformat())
+            photo.update(image=f"/api/v1/backgrounds/{photo['id']}.jpg?v=2", downloaded_at=at.isoformat())
             self._atomic(photo['id'] + '.jpg', image)
             with self.lock:
                 old = self.state['photos']
@@ -131,7 +174,7 @@ class Backgrounds:
     def catalog(self, at=None):
         period, following = self.slot(at or datetime.now(CHINA))
         with self.lock:
-            photos = [dict(p) for p in self.state['photos']]
+            photos = [dict(p) for p in self.state['photos'] if photo_size(p)]
             status = 'ready' if photos and self.state['last_period'] == period else ('stale' if photos else 'fallback')
             return {'photos': photos + self.fallback, 'daily_id': photos[0]['id'] if photos else '',
                     'status': status, 'refresh_time': self.refresh_time, 'timezone': 'Asia/Shanghai',
