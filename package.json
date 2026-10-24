@@ -1,0 +1,12 @@
+{
+  "name": "navsprout",
+  "private": true,
+  "scripts": {
+    "test:browser": "python3 scripts/check_browser.py",
+    "test:appearance-order": "node tests/appearance-order.cjs",
+    "test:responsive": "node tests/responsive.cjs"
+  },
+  "devDependencies": {
+    "playwright": "1.57.0"
+  }
+}

@@ -1,0 +1,4 @@
+fastapi==0.161.1
+uvicorn==0.54.0
+argon2-cffi==25.1.0
+itsdangerous==2.2.0

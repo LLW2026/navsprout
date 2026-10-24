@@ -1,0 +1,14 @@
+nav.example.com {
+    encode gzip zstd
+    header {
+        Strict-Transport-Security "max-age=31536000"
+        X-Robots-Tag "noindex, nofollow"
+    }
+    request_body {
+        max_size 4MB
+    }
+    request_header -Forwarded
+    request_header -X-Forwarded-*
+    request_header -X-Real-IP
+    reverse_proxy 127.0.0.1:8866
+}
