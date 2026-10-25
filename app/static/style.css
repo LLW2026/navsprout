@@ -106,6 +106,8 @@ section{margin-bottom:31px}
 .section-head .section-add{margin-left:auto;border:0;background:transparent;color:var(--muted);padding:2px 5px;font-size:18px}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(228px,1fr));gap:12px}
 .link-card{background:var(--surface);border:1px solid var(--line);border-radius:11px;position:relative;min-width:0;transition:box-shadow .15s,border-color .15s}
+/* Raise the card itself above sibling backdrop-filter stacking contexts. */
+.link-card:has(.card-menu[open]){z-index:15}
 .link-card:hover{box-shadow:0 5px 15px var(--shadow);border-color:var(--border-hover)}
 .card-main{display:flex;padding:19px 35px 18px 17px;gap:12px;height:100%;min-height:108px}
 .site-icon{width:37px;height:37px;flex-shrink:0;display:grid;place-items:center;border-radius:10px;background:var(--soft);color:var(--green);font-size:16px;font-weight:600;margin-top:1px}
