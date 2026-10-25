@@ -135,13 +135,13 @@ async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await new P
   });
   await check('服务器背景目录与图片实际加载，来源可查，切换及刷新保留',async()=>{
    await page.locator('#open-background').click();await page.locator('#background-mode').selectOption('daily');
-   await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
+   await page.waitForFunction(()=>document.querySelector('.background-photo.visible')?.naturalWidth>=3840);
    let first=await page.locator('.background-photo.visible').getAttribute('src');
    assert.ok(await page.locator('.background-photo.visible').evaluate(img=>img.complete&&img.naturalWidth>=3840&&img.naturalHeight>=2160));
    assert.ok((await page.locator('#background-credit').getAttribute('href')).startsWith('https://unsplash.com/photos/'));
    await page.locator('#next-background').click();await page.waitForFunction(src=>document.querySelector('.background-photo.visible').getAttribute('src')!==src,first);
    const second=await page.locator('.background-photo.visible').getAttribute('src');
-   await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');assert.equal(await page.locator('.background-photo.visible').getAttribute('src'),second);
+   await page.reload();await page.waitForFunction(()=>document.querySelector('.background-photo.visible')?.naturalWidth>=3840);assert.equal(await page.locator('.background-photo.visible').getAttribute('src'),second);
    const manifest=(await (await page.request.get(base+'/api/v1/backgrounds')).json()).data;assert.ok(manifest.photos.length>=8);if(!isolated){assert.equal(manifest.status,'ready');assert.ok(manifest.daily_id);assert.ok(manifest.photos[0].downloaded_at);}
    for(const photo of manifest.photos.slice(0,9)){const image=await page.request.get(base+photo.image);assert.equal(image.status(),200);assert.ok((await image.body()).length>20000);}
   });
@@ -152,7 +152,7 @@ async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await new P
    await page.locator('#background-overlay').selectOption('soft');
    assert.equal(await page.locator('html').getAttribute('data-photo-overlay'),'soft');
    assert.equal(await page.locator('.background-photo.visible').getAttribute('src'),source);
-   await page.reload();await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
+   await page.reload();await page.waitForFunction(()=>document.querySelector('.background-photo.visible')?.naturalWidth>=3840);
    assert.equal(await page.locator('html').getAttribute('data-photo-overlay'),'soft');
    const other=await context.newPage();await other.goto(base);await other.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
    await page.locator('#open-background').click();await page.locator('#background-overlay').selectOption('none');
@@ -172,7 +172,7 @@ async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await new P
   await check('页面检测到服务器新图后自动切换（受控接口跨日场景）',async()=>{
    const meta=(await (await page.request.get(base+'/api/v1/backgrounds')).json()).data;
    const bytes=await (await page.request.get(base+meta.photos[0].image)).body();
-   const incoming={...meta.photos[0],id:'2099-01-01-999999',image:'/api/v1/backgrounds/2099-01-01-999999.jpg'};
+   const incoming={...meta.photos[0],optimized_image:undefined,preview:undefined,id:'2099-01-01-999999',image:'/api/v1/backgrounds/2099-01-01-999999.jpg'};
    await page.route('**/api/v1/backgrounds',route=>route.fulfill({json:{data:{...meta,daily_id:incoming.id,status:'ready',photos:[incoming,...meta.photos]}}}));
    await page.route('**/api/v1/backgrounds/2099-01-01-999999.jpg',route=>route.fulfill({body:bytes,contentType:'image/jpeg'}));
    await page.locator('#background-mode').selectOption('daily');await page.clock.fastForward(61000);
@@ -186,11 +186,11 @@ async function until(fn){for(let i=0;i<100;i++){if(await fn())return;await new P
    assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.ambient-light'),'::after').animationName),'none');await page.emulateMedia({reducedMotion:'no-preference'});
   });
   await check('图片失败保留主题背景，可重试恢复且不向第三方发请求',async()=>{
-   await page.route(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.jpg(?:\?v=2)?$/,route=>route.abort());
+   await page.route(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.(?:jpg|webp|image)(?:\?v=\d+)?$/,route=>route.abort());
    await page.locator('#background-mode').selectOption('daily');await page.locator('#background-status').waitFor({state:'visible'});
    assert.equal(await page.locator('html').getAttribute('data-background'),'theme');
-   await page.unroute(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.jpg(?:\?v=2)?$/);await page.locator('#next-background').click();
-   await page.waitForFunction(()=>document.documentElement.dataset.background==='landscape');
+   await page.unroute(/\/(?:static\/backgrounds|api\/v1\/backgrounds)\/[^/]+\.(?:jpg|webp|image)(?:\?v=\d+)?$/);await page.locator('#next-background').click();
+   await page.waitForFunction(()=>document.querySelector('.background-photo.visible')?.naturalWidth>=3840);
    await page.locator('#background-mode').selectOption('theme');assert.deepEqual(externalRequests,[]);
   });
   await check('320 与 390 手机布局可使用全部主题及背景设置',async()=>{

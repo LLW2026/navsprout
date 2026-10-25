@@ -4,7 +4,8 @@
   "scripts": {
     "test:browser": "python3 scripts/check_browser.py",
     "test:appearance-order": "node tests/appearance-order.cjs",
-    "test:responsive": "node tests/responsive.cjs"
+    "test:responsive": "node tests/responsive.cjs",
+    "test:loading": "node tests/loading.cjs"
   },
   "devDependencies": {
     "playwright": "1.57.0"

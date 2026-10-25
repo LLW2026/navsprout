@@ -14,7 +14,7 @@ function webSearch() {
   window.open(url.href, '_blank', 'noopener,noreferrer');
 }
 function toast(message) { $('#toast').textContent = message; $('#toast').hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => $('#toast').hidden = true, 3200); }
-function showLogin() { window.NavAppearance.stop(); $('#app-view').hidden = true; $('#login-view').hidden = false; document.querySelectorAll('dialog[open]').forEach(d => d.close()); }
+function showLogin() { window.NavIcons.stop(); window.NavAppearance.stop(); $('#app-view').hidden = true; $('#login-view').hidden = false; document.querySelectorAll('dialog[open]').forEach(d => d.close()); }
 async function api(path, options = {}) {
   const response = await fetch('/api/v1' + path, {credentials:'same-origin', ...options, headers:{'Content-Type':'application/json', 'X-CSRF-Token':csrf, ...options.headers}});
   const data = await response.json();
@@ -32,7 +32,7 @@ function nav(visible = links) {
 function card(l) {
   const tone = [...l.name].reduce((sum, c) => sum + c.codePointAt(0), 0) % 5;
   const host = new URL(l.url).host;
-  const icon = l.icon ? e(l.icon) : `<span class="site-initial">${e([...l.name][0])}</span><img data-favicon src="/api/v1/links/${encodeURIComponent(l.key)}/favicon" alt="" loading="lazy" decoding="async" width="26" height="26">`;
+  const icon = l.icon ? e(l.icon) : `<span class="site-initial">${e([...l.name][0])}</span><img data-favicon data-icon-origin="${e(new URL(l.url).origin)}" data-src="/api/v1/links/${encodeURIComponent(l.key)}/favicon" alt="" loading="lazy" decoding="async" width="26" height="26">`;
   return `<article class="link-card" data-key="${e(l.key)}" data-network="${l.network}"><button type="button" class="drag-handle" draggable="true" aria-label="拖动 ${e(l.name)}" title="拖动排序">⠿</button><a draggable="false" class="card-main" href="${e(l.url)}" target="_blank" rel="noopener noreferrer"><span class="site-icon tone-${tone}">${icon}</span><div class="card-copy"><h3 title="${e(l.name)}">${e(l.name)}</h3><p title="${e(l.description || host)}">${e(l.description || host)}</p><div class="badges">${l.organization !== '其他' ? `<span class="badge">${e(l.organization)}</span>` : ''}${l.network === 'lan' ? '<span class="badge lan">内网</span>' : ''}${l.environment !== 'none' ? `<span class="badge ${l.environment === 'test' ? 'test' : ''}">${l.environment === 'test' ? '测试' : '生产'}</span>` : ''}</div></div></a><details class="menu card-menu"><summary aria-label="管理 ${e(l.name)}">•••</summary><div class="menu-panel"><button data-action="edit" data-key="${e(l.key)}">编辑</button><button data-action="pin" data-key="${e(l.key)}">${l.pinned ? '取消置顶' : '置顶'}</button><button data-action="up" data-key="${e(l.key)}">上移</button><button data-action="down" data-key="${e(l.key)}">下移</button><button data-action="delete" data-key="${e(l.key)}" class="danger">删除</button></div></details></article>`;
 }
 function section(name, items, cname = '', pinned = false, source = null) {
@@ -55,6 +55,7 @@ function render() {
   }
   if (!html) html = filtering ? '<div class="empty-results"><p>没有找到相关网址</p><button data-clear-filters>清除筛选</button></div>' : '<div class="empty-results"><p>还没有收藏</p><button id="first-category">添加分类</button></div>';
   $('#sections').innerHTML = html;
+  window.NavIcons.refresh();
 }
 async function refresh() {
   const id = ++generation, requestedQuery = localQuery();

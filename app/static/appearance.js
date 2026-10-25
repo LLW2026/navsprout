@@ -59,7 +59,9 @@
       const valid = data.photos.filter(p => {
         const daily = /^\d{4}-\d\d-\d\d-\d+$/.test(p.id) && [ `/api/v1/backgrounds/${p.id}.jpg`, `/api/v1/backgrounds/${p.id}.jpg?v=2` ].includes(p.image);
         const fallback = /^\d+$/.test(p.id) && [ `/static/backgrounds/${p.id}.jpg`, `/static/backgrounds/${p.id}.jpg?v=2` ].includes(p.image);
-        return (daily || fallback) && new URL(p.source).origin === 'https://unsplash.com';
+        const optimized = !p.optimized_image || p.optimized_image === `/api/v1/backgrounds/${p.id}.image?v=3`;
+        const preview = !p.preview || p.preview === `/api/v1/backgrounds/${p.id}-preview.webp?v=3`;
+        return (daily || fallback) && optimized && preview && new URL(p.source).origin === 'https://unsplash.com';
       });
       if (!valid.length) throw new Error(); catalog = valid; catalogMeta = data;
     }).catch(error => { catalogRequest = null; throw error; });
@@ -96,18 +98,32 @@
       else if (index < 0) index = 0;
       else if (advance || due) index = (index + 1) % catalog.length;
       const photo = catalog[index];
-      if (current >= 0 && photos[current].getAttribute('src') === photo.image) { sourceStatus(); schedule(); return; }
-      // Preload before replacing the previous frame; stale requests cannot change the page.
-      const target = current === 0 ? 1 : 0;
-      photos[target].src = photo.image;
-      let timeout;
-      try {
-        await Promise.race([photos[target].decode(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error()), 30000); })]);
-      } finally { clearTimeout(timeout); }
-      if (id !== revision) return;
-      photos[target].classList.add('visible');
-      if (current >= 0) photos[current].classList.remove('visible');
-      current = target; root.dataset.background = 'landscape';
+      const full = photo.optimized_image || photo.image;
+      if (current >= 0 && photos[current].getAttribute('src') === full) { sourceStatus(); schedule(); return; }
+      async function frame(src) {
+        if (id !== revision) return false;
+        const target = current === 0 ? 1 : 0;
+        photos[target].fetchPriority = 'high';
+        photos[target].src = src;
+        let timeout;
+        try {
+          await Promise.race([photos[target].decode(), new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error()), 30000); })]);
+        } finally { clearTimeout(timeout); }
+        if (id !== revision) return false;
+        photos[target].classList.add('visible');
+        if (current >= 0) photos[current].classList.remove('visible');
+        current = target; root.dataset.background = 'landscape';
+        return true;
+      }
+      // A small first frame appears quickly; the same image then resolves at full resolution.
+      if (photo.preview && current < 0) {
+        try { if (!await frame(photo.preview)) return; } catch { /* Continue with the original-size image. */ }
+      }
+      try { if (!await frame(full)) return; }
+      catch (error) {
+        if (full === photo.image) throw error;
+        if (!await frame(photo.image)) return;
+      }
       if (photo.id !== settings.id || !settings.changed || advance || due || fresh) {
         settings.id = photo.id; settings.daily_id = catalogMeta.daily_id || ''; settings.changed = Date.now(); persist();
       }

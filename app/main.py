@@ -13,7 +13,7 @@ from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from starlette.exceptions import HTTPException
 from starlette.middleware.sessions import SessionMiddleware
@@ -23,6 +23,7 @@ from .db import migrate, transaction
 from .backgrounds import Backgrounds
 from .batch import edit_batch
 from .favicon import FaviconCache
+from .media import MediaCache
 from .models import BatchEdit, Category, CategoryOrder, Create, DeleteCategory, ImportData, LinkFields, Login, MoveLink, Reorder, Upsert
 from .ordering import move_link, reorder_categories, reorder_links
 from .service import export_data, fail, import_data, now, record, save
@@ -59,6 +60,7 @@ def create_app(config=None):
     migrate(path)
     icons = FaviconCache(Path(path).parent / 'favicon-cache')
     icon_limiter = anyio.CapacityLimiter(6)
+    media = MediaCache(Path(path).parent / 'media-cache')
     background_enabled = cfg.get('NAV_BACKGROUND_ENABLED', 'true').lower()
     if background_enabled not in ('true', 'false'):
         raise RuntimeError('NAV_BACKGROUND_ENABLED 请填写 true 或 false')
@@ -96,10 +98,13 @@ def create_app(config=None):
                 chunks.append(chunk)
             request._body = b''.join(chunks)
         response = await call_next(request)
+        response.headers.setdefault('Cache-Control', 'no-store')
+        if request.url.path.startswith('/static/') and response.status_code in (200, 304):
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable' if request.query_params.get('v') else 'public, no-cache'
         response.headers.update({
-            'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff',
+            'X-Content-Type-Options': 'nosniff',
             'X-Frame-Options': 'DENY', 'Referrer-Policy': 'no-referrer',
-            'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+            'Content-Security-Policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob:; connect-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
         })
         return response
 
@@ -152,16 +157,38 @@ def create_app(config=None):
 
     auth_dep = [Depends(authenticated)]
 
+    def private_file(request, path, media_type):
+        response = FileResponse(path, media_type=media_type, stat_result=path.stat(), headers={'Cache-Control': 'private, no-cache', 'Vary': 'Authorization'})
+        if response.headers['etag'] in [v.strip() for v in request.headers.get('if-none-match', '').split(',')]:
+            return Response(status_code=304, headers=dict(response.headers))
+        return response
+
     @app.get('/api/v1/backgrounds', dependencies=auth_dep)
     def background_catalog():
-        return {'data': backgrounds.catalog()}
+        catalog = backgrounds.catalog()
+        for photo in catalog['photos']:
+            photo['optimized_image'] = f"/api/v1/backgrounds/{photo['id']}.image?v=3"
+            photo['preview'] = f"/api/v1/backgrounds/{photo['id']}-preview.webp?v=3"
+        return {'data': catalog}
 
     @app.get('/api/v1/backgrounds/{filename}', dependencies=auth_dep)
-    def background_image(filename: str):
+    def background_image(filename: str, request: Request):
+        if filename.endswith(('.webp', '.image')):
+            image_id = filename.rsplit('.', 1)[0]
+            preview = image_id.endswith('-preview')
+            if preview:
+                image_id = image_id[:-8]
+            cached = backgrounds.image_path(image_id + '.jpg')
+            if not cached and image_id in {p['id'] for p in backgrounds.fallback}:
+                cached = STATIC / 'backgrounds' / (image_id + '.jpg')
+            if not cached:
+                fail(404, 'not_found', '背景图片不存在')
+            optimized = media.image(cached, preview)
+            return private_file(request, optimized, 'image/webp' if optimized.suffix == '.webp' else 'image/jpeg')
         cached = backgrounds.image_path(filename)
         if not cached:
             fail(404, 'not_found', '背景图片不存在')
-        return FileResponse(cached, media_type='image/jpeg')
+        return private_file(request, cached, 'image/jpeg')
 
     @app.get('/healthz')
     def health():
@@ -292,11 +319,17 @@ def create_app(config=None):
             return {'data': record(db, key)}
 
     @app.get('/api/v1/links/{key}/favicon', dependencies=auth_dep)
-    async def link_favicon(key: str):
+    async def link_favicon(key: str, request: Request):
         with transaction(path) as db:
             url = record(db, key)['url']
         result = await anyio.to_thread.run_sync(icons.get, url, limiter=icon_limiter)
-        return Response(result[0], media_type=result[1]) if result else Response(status_code=204)
+        headers = {'Cache-Control': 'private, no-cache', 'Vary': 'Authorization'}
+        if not result:
+            return Response(status_code=204, headers=headers)
+        headers['ETag'] = '"' + hashlib.sha256(result[0]).hexdigest() + '"'
+        if headers['ETag'] in [v.strip() for v in request.headers.get('if-none-match', '').split(',')]:
+            return Response(status_code=304, headers=headers)
+        return Response(result[0], media_type=result[1], headers=headers)
 
     @app.patch('/api/v1/links/{key}', dependencies=auth_dep)
     def patch_link(key: str, body: LinkFields):
@@ -325,9 +358,15 @@ def create_app(config=None):
     def openapi():
         return app.openapi()
 
+    index_html = (STATIC / 'index.html').read_text()
+    for asset in STATIC.iterdir():
+        if asset.is_file() and asset.suffix in {'.js', '.css', '.svg', '.png'}:
+            version = hashlib.sha256(asset.read_bytes()).hexdigest()[:16]
+            index_html = index_html.replace(f'/static/{asset.name}"', f'/static/{asset.name}?v={version}"')
+
     @app.get('/')
     def index():
-        return FileResponse(STATIC / 'index.html')
+        return HTMLResponse(index_html)
 
     app.mount('/static', StaticFiles(directory=STATIC), name='static')
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=cfg.get('NAV_ALLOWED_HOSTS', 'localhost,127.0.0.1,nav.example.com,192.168.1.10,192.168.1.11').split(','))
