@@ -33,7 +33,7 @@ function card(l) {
   const tone = [...l.name].reduce((sum, c) => sum + c.codePointAt(0), 0) % 5;
   const host = new URL(l.url).host;
   const icon = l.icon ? e(l.icon) : `<span class="site-initial">${e([...l.name][0])}</span><img data-favicon data-icon-origin="${e(new URL(l.url).origin)}" data-src="/api/v1/links/${encodeURIComponent(l.key)}/favicon" alt="" loading="lazy" decoding="async" width="26" height="26">`;
-  return `<article class="link-card" data-key="${e(l.key)}" data-network="${l.network}"><button type="button" class="drag-handle" draggable="true" aria-label="拖动 ${e(l.name)}" title="拖动排序">⠿</button><a draggable="false" class="card-main" href="${e(l.url)}" target="_blank" rel="noopener noreferrer"><span class="site-icon tone-${tone}">${icon}</span><div class="card-copy"><h3 title="${e(l.name)}">${e(l.name)}</h3><p title="${e(l.description || host)}">${e(l.description || host)}</p><div class="badges">${l.organization !== '其他' ? `<span class="badge">${e(l.organization)}</span>` : ''}${l.network === 'lan' ? '<span class="badge lan">内网</span>' : ''}${l.environment !== 'none' ? `<span class="badge ${l.environment === 'test' ? 'test' : ''}">${l.environment === 'test' ? '测试' : '生产'}</span>` : ''}</div></div></a><details class="menu card-menu"><summary aria-label="管理 ${e(l.name)}">•••</summary><div class="menu-panel"><button data-action="edit" data-key="${e(l.key)}">编辑</button><button data-action="pin" data-key="${e(l.key)}">${l.pinned ? '取消置顶' : '置顶'}</button><button data-action="up" data-key="${e(l.key)}">上移</button><button data-action="down" data-key="${e(l.key)}">下移</button><button data-action="delete" data-key="${e(l.key)}" class="danger">删除</button></div></details></article>`;
+  return `<article class="link-card" data-key="${e(l.key)}" data-network="${l.network}"><button type="button" class="drag-handle" draggable="true" aria-label="拖动 ${e(l.name)}" title="拖动排序">⠿</button><a draggable="false" class="card-main" href="${e(l.url)}" target="_blank" rel="noopener noreferrer"><span class="site-icon tone-${tone}">${icon}</span><div class="card-copy"><h3 title="${e(l.name)}">${e(l.name)}</h3><p title="${e(l.description || host)}">${e(l.description || host)}</p><div class="badges">${l.organization !== '其他' ? `<span class="badge">${e(l.organization)}</span>` : ''}${l.network === 'lan' ? '<span class="badge lan">内网</span>' : ''}${l.environment !== 'none' ? `<span class="badge ${l.environment === 'test' ? 'test' : ''}">${l.environment === 'test' ? '测试' : '生产'}</span>` : ''}</div></div></a><details class="menu card-menu"><summary aria-label="管理 ${e(l.name)}">•••</summary><div class="menu-panel"><button data-action="edit" data-key="${e(l.key)}">编辑</button><button data-action="move" data-key="${e(l.key)}">移动至分类</button><button data-action="pin" data-key="${e(l.key)}">${l.pinned ? '取消置顶' : '置顶'}</button><button data-action="up" data-key="${e(l.key)}">上移</button><button data-action="down" data-key="${e(l.key)}">下移</button><button data-action="delete" data-key="${e(l.key)}" class="danger">删除</button></div></details></article>`;
 }
 function section(name, items, cname = '', pinned = false, source = null) {
   const id = pinned ? 'pinned' : String(source.id), selected = sectionNetworks.get(id) || '';
@@ -120,6 +120,16 @@ $('#sections').addEventListener('click', async event => {
   const b = event.target.closest('[data-action]'); if (!b) return; const link = links.find(l => l.key === b.dataset.key); b.closest('details').open = false;
   try {
     if (b.dataset.action === 'edit') openLink(link);
+    else if (b.dataset.action === 'move') {
+      const targets = categories.filter(c => c.id !== link.category_id);
+      if (!targets.length) { toast('请先添加其他分类'); return; }
+      confirmDialog('移动至分类', link.name, async () => {
+        const target = targets.find(c => c.id === Number($('#move-target').value));
+        if (!target) throw new Error('请选择目标分类');
+        await write('/links/' + encodeURIComponent(link.key), 'PATCH', {category: target.name});
+        await refresh(); toast(`已移至「${target.name}」`);
+      }, targets);
+    }
     else if (b.dataset.action === 'delete') confirmDialog('删除网址', `删除“${link.name}”？`, async () => { await write('/links/'+encodeURIComponent(link.key),'DELETE',{}); await refresh(); toast('网址已删除'); });
     else if (b.dataset.action === 'pin') { await write('/links/'+encodeURIComponent(link.key),'PATCH',{pinned:!link.pinned}); await refresh(); }
     else { const all = (await api('/links')).data.filter(l => link.pinned ? l.pinned : !l.pinned && l.category_id === link.category_id), index = all.findIndex(l => l.key === link.key), next = index + (b.dataset.action === 'up' ? -1 : 1); if (next < 0 || next >= all.length) return; await write('/links/move','POST',{key:link.key,before_key:all[b.dataset.action === 'up' ? next : next+1]?.key || null}); await refresh(); }
