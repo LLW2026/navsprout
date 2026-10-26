@@ -172,3 +172,10 @@ footer { gap: 12px; flex-wrap: wrap; }
 #group-category-name,#group-selected-count { font-size:12px; color:var(--muted); }
 
 .grid { align-items:start; }
+
+.group-main { padding-bottom:26px; }
+[data-group-chevron] { position:absolute; left:calc(50% - 16px); bottom:3px; width:32px; height:20px; display:grid; place-items:center; color:var(--muted); }
+.group-main[aria-expanded="false"] [data-group-chevron] svg { animation:group-chevron-hint 2.4s ease-in-out infinite; }
+.group-main[aria-expanded="true"] [data-group-chevron] svg { transform:rotate(180deg); }
+@keyframes group-chevron-hint { 0%,100% { opacity:.45; transform:translateY(-1px); } 50% { opacity:1; transform:translateY(2px); } }
+:root[data-motion="off"] [data-group-chevron] svg { animation:none; }
