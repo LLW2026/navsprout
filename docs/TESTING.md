@@ -37,3 +37,9 @@ GitHub Actions 自动执行后端回归及前端 JavaScript 语法检查。需�
 `npm run test:loading` 使用独立浏览器会话测量首次及重复访问，验证脚本样式缓存、私有背景校验、完整分辨率、滚动图标和手机/超宽屏布局。可通过 NAV_TEST_URL、NAV_TEST_PASSWORD、NAV_ORDER_ISOLATED、PLAYWRIGHT_MODULE、CHROMIUM_PATH 指向隔离实例和浏览器运行时。
 
 本次变更通过 70 项后端测试及 20 组隔离浏览器功能回归。图片转换只在 WebP 体积更小时采用，私有图片携带旧 ETag 的未认证请求仍返回 401。网站数据不放入浏览器本地存储；完整照片像素不缩小。
+
+## 单层聚合回归
+
+`python -m pytest -q` 共 82 项通过。`python scripts/check_groups.py` 使用临时数据库和回环地址，聚合 11 项、原有排序与主题 20 项浏览器检查通过；不会连接真实收藏。可以通过 `PLAYWRIGHT_MODULE`、`CHROMIUM_PATH` 指定依赖。`python scripts/check_browser.py` 也已接入聚合回归。
+
+覆盖同分类、成员唯一归属、单层限制、成员排序、聚合置顶与拆分、整组移动、单个网址移出、搜索与内外网筛选、AI 更新保留关系、混合卡片鼠标拖动、手机菜单、v1 数据库迁移、v2 JSON 导入导出、备份恢复、认证和并发。公开版未在远程生产服务器部署；NAS 私有部署另行完成真实容器重启/重建及跨设备读取验证。

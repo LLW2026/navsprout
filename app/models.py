@@ -91,10 +91,46 @@ class ImportLink(LinkFields):
     updated_at: str | None = Field(default=None, max_length=40)
 
 
+class GroupCreate(Model):
+    name: str = Field(min_length=1, max_length=120)
+    keys: list[str] = Field(min_length=2, max_length=500)
+    icon: str = Field(default='', max_length=16)
+    pinned: bool = False
+
+
+class GroupPatch(Model):
+    name: str | None = Field(default=None, min_length=1, max_length=120)
+    keys: list[str] | None = Field(default=None, min_length=1, max_length=500)
+    icon: str | None = Field(default=None, max_length=16)
+    pinned: bool | None = None
+    sort_order: int | None = Field(default=None, ge=-1000000, le=1000000)
+    category_id: int | None = Field(default=None, gt=0)
+
+    @field_validator('*', mode='before')
+    @classmethod
+    def no_null(cls, value):
+        if value is None:
+            raise ValueError('字段不能为 null')
+        return value
+
+
+class ImportGroup(Model):
+    key: str = Field(pattern=r'^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$')
+    name: str = Field(min_length=1, max_length=120)
+    category: str = Field(min_length=1, max_length=80)
+    keys: list[str] = Field(min_length=1, max_length=500)
+    icon: str = Field(default='', max_length=16)
+    pinned: bool = False
+    sort_order: int = Field(default=0, ge=-1000000, le=1000000)
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
 class ImportData(Model):
-    version: Literal[1]
+    version: Literal[1, 2]
     categories: list[Category] = Field(max_length=500)
     links: list[ImportLink] = Field(max_length=10000)
+    groups: list[ImportGroup] | None = Field(default=None, max_length=5000)
     exported_at: str | None = None
 
 
@@ -118,8 +154,8 @@ class CategoryOrder(Model):
 
 
 class MoveLink(Model):
-    key: str = Field(min_length=1, max_length=128)
-    before_key: str | None = Field(default=None, min_length=1, max_length=128)
+    key: str = Field(min_length=1, max_length=134)
+    before_key: str | None = Field(default=None, min_length=1, max_length=134)
     category_id: int | None = Field(default=None, gt=0)
     pinned: bool | None = None
 

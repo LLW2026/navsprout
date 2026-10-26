@@ -22,9 +22,10 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .db import migrate, transaction
 from .backgrounds import Backgrounds
 from .batch import edit_batch
+from .groups import group_record, list_groups, save_group, move_card, reorder_cards
 from .favicon import FaviconCache
 from .media import MediaCache
-from .models import BatchEdit, Category, CategoryOrder, Create, DeleteCategory, ImportData, LinkFields, Login, MoveLink, Reorder, Upsert
+from .models import GroupCreate, GroupPatch, BatchEdit, Category, CategoryOrder, Create, DeleteCategory, ImportData, LinkFields, Login, MoveLink, Reorder, Upsert
 from .ordering import move_link, reorder_categories, reorder_links
 from .service import export_data, fail, import_data, now, record, save
 
@@ -272,16 +273,63 @@ def create_app(config=None):
             if count:
                 if body.move_to == cid or not db.execute('SELECT id FROM categories WHERE id=?', (body.move_to,)).fetchone():
                     fail(409, 'category_not_empty', '请先选择链接迁入的分类')
+                db.execute('UPDATE link_groups SET category_id=?,updated_at=? WHERE category_id=?', (body.move_to, now(), cid))
                 db.execute('UPDATE links SET category_id=?,updated_at=? WHERE category_id=?', (body.move_to, now(), cid))
             db.execute('DELETE FROM categories WHERE id=?', (cid,))
         return {'data': {'deleted': True, 'moved_links': count}}
+
+    @app.get('/api/v1/groups', dependencies=auth_dep)
+    def groups():
+        with transaction(path) as db:
+            return {'data': list_groups(db)}
+
+    @app.post('/api/v1/groups', dependencies=auth_dep, status_code=201)
+    def create_group(body: GroupCreate):
+        with transaction(path, write=True) as db:
+            data = save_group(db, body.model_dump())
+        return {'data': data}
+
+    @app.patch('/api/v1/groups/{key}', dependencies=auth_dep)
+    def patch_group(key: str, body: GroupPatch):
+        with transaction(path, write=True) as db:
+            data = save_group(db, body.model_dump(exclude_unset=True), key)
+        return {'data': data}
+
+    @app.delete('/api/v1/groups/{key}', dependencies=auth_dep)
+    def dissolve_group(key: str):
+        with transaction(path, write=True) as db:
+            group_record(db, key)
+            db.execute('DELETE FROM link_groups WHERE key=?', (key,))
+        return {'data': {'dissolved': True}}
+
+    @app.delete('/api/v1/groups/{key}/members/{member}', dependencies=auth_dep)
+    def detach_member(key: str, member: str):
+        with transaction(path, write=True) as db:
+            group_record(db, key)
+            if not db.execute('SELECT 1 FROM group_members WHERE group_key=? AND link_key=?', (key, member)).fetchone():
+                fail(404, 'not_found', '网址已移出聚合')
+            db.execute('DELETE FROM group_members WHERE group_key=? AND link_key=?', (key, member))
+        return {'data': {'detached': True}}
+
+    @app.post('/api/v1/cards/reorder', dependencies=auth_dep)
+    def card_order(body: Reorder):
+        with transaction(path, write=True) as db:
+            reorder_cards(db, body)
+        return {'data': {'saved': True}}
+
+    @app.post('/api/v1/cards/move', dependencies=auth_dep)
+    def card_move(body: MoveLink):
+        with transaction(path, write=True) as db:
+            move_card(db, body)
+        return {'data': {'saved': True}}
 
     @app.get('/api/v1/links', dependencies=auth_dep)
     def links(q: str = '', category: str = '', organization: str = '', network: str = '', environment: str = ''):
         with transaction(path) as db:
             result = [record(db, row['key']) for row in db.execute('SELECT key FROM links ORDER BY sort_order,key')]
+            group_names = {r['link_key']:r['name'] for r in db.execute('SELECT m.link_key,g.name FROM group_members m JOIN link_groups g ON g.key=m.group_key')}
         keyword = q.casefold()
-        return {'data': [r for r in result if (not keyword or any(keyword in r[f].casefold() for f in ('name', 'url', 'description'))) and all(not v or r[k] == v for k, v in [('category', category), ('organization', organization), ('network', network), ('environment', environment)])]}
+        return {'data': [r for r in result if (not keyword or any(keyword in text.casefold() for text in (r['name'], r['url'], r['description'], group_names.get(r['key'], '')))) and all(not v or r[k] == v for k, v in [('category', category), ('organization', organization), ('network', network), ('environment', environment)])]}
 
     @app.post('/api/v1/links/upsert', dependencies=auth_dep)
     def upsert(body: Upsert):

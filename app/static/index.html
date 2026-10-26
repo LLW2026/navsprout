@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="zh-CN">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>导航呀</title><link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon"><link rel="icon" href="/static/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><script src="/static/theme.js"></script><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/appearance.css"><script src="/static/appearance.js" defer></script><script src="/static/batch.js" defer></script><script src="/static/icons.js" defer></script><script src="/static/app.js" defer></script></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>导航呀</title><link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" type="image/x-icon"><link rel="icon" href="/static/icon.svg" type="image/svg+xml"><link rel="apple-touch-icon" href="/static/apple-touch-icon.png"><script src="/static/theme.js"></script><link rel="stylesheet" href="/static/style.css"><link rel="stylesheet" href="/static/appearance.css"><script src="/static/appearance.js" defer></script><script src="/static/groups.js" defer></script><script src="/static/batch.js" defer></script><script src="/static/icons.js" defer></script><script src="/static/app.js" defer></script></head>
 <body>
 <div id="background-scene" aria-hidden="true"><img class="background-photo" alt=""><img class="background-photo" alt=""><div class="ambient-light"></div></div>
 <div id="login-view" class="login-view" hidden>
@@ -24,7 +24,7 @@
     <div class="dialog-heading"><h2>批量编辑 <small id="batch-category"></small></h2><button type="button" class="icon-btn close-dialog" aria-label="关闭">×</button></div>
     <div class="batch-toolbar">
       <label class="batch-select-all"><input type="checkbox" id="batch-select-all">全选</label><span id="batch-selected-count">已选 0</span>
-      <select id="batch-operation" aria-label="批量操作"><option value="">选择操作</option><option value="move">移动分类</option><option value="pin">置顶</option><option value="unpin">取消置顶</option><option value="delete">删除</option></select>
+      <select id="batch-operation" aria-label="批量操作"><option value="">选择操作</option><option value="group">聚合为卡片</option><option value="move">移动分类</option><option value="pin">置顶</option><option value="unpin">取消置顶</option><option value="delete">删除</option></select>
       <select id="batch-target" aria-label="目标分类" hidden></select><button type="button" id="batch-apply" disabled>应用</button>
     </div>
     <div class="batch-columns" aria-hidden="true"><span></span><span>名称</span><span>网址</span><span>说明</span></div>
@@ -35,5 +35,6 @@
 </dialog>
 <dialog id="confirm-dialog"><form id="confirm-form"><div class="dialog-heading"><h2 id="confirm-title"></h2><button type="button" class="icon-btn close-dialog" aria-label="关闭">×</button></div><p id="confirm-text"></p><label id="move-label" hidden>目标分类<select id="move-target"></select></label><p class="error form-error" role="alert"></p><div class="dialog-actions"><button type="button" class="close-dialog">取消</button><button type="submit" id="confirm-submit" class="primary">确认</button></div></form></dialog>
 
+<dialog id="group-dialog"><form id="group-form"><div class="dialog-heading"><h2 id="group-title">聚合网址</h2><button type="button" class="close-dialog icon-btn" aria-label="关闭">×</button></div><p id="group-category-name"></p><label>名称<input id="group-name" required maxlength="120" placeholder="应用名称"></label><label>图标<input id="group-icon" maxlength="16" placeholder="选填"></label><div id="group-choices"></div><p id="group-selected-count"></p><p class="error form-error" role="alert"></p><div class="dialog-actions"><button type="button" class="close-dialog">取消</button><button type="submit" class="primary">保存</button></div></form></dialog>
 <input id="import-file" type="file" accept="application/json,.json" hidden><div id="toast" role="status" hidden></div>
 </body></html>

@@ -72,7 +72,12 @@ def export_data(db):
         data = record(db, row['key'])
         data.pop('category_id')
         links.append(data)
-    return {'version': 1, 'exported_at': now(), 'categories': categories, 'links': links}
+    from .groups import list_groups
+    groups = list_groups(db)
+    result = {'version': 2 if groups else 1, 'exported_at': now(), 'categories': categories, 'links': links}
+    if groups:
+        result['groups'] = [{k:v for k,v in g.items() if k != 'category_id'} for g in groups]
+    return result
 
 
 def import_data(db, payload):
@@ -87,4 +92,19 @@ def import_data(db, payload):
     for link in payload.links:
         result, _ = save(db, link, mode='import')
         counts[result] += 1
+    if payload.version == 2 and payload.groups is None:
+        fail(422, 'groups_required', '导入文件缺少聚合数据')
+    if payload.groups is not None:
+        from .groups import save_group
+        group_keys = [g.key for g in payload.groups]
+        members = [k for g in payload.groups for k in g.keys]
+        if len(group_keys) != len(set(group_keys)) or len(members) != len(set(members)):
+            fail(422, 'duplicate_groups', '聚合标识或成员存在重复')
+        # Keep each imported group alive while updating membership; conflicting groups are rejected.
+        for group in payload.groups:
+            data = group.model_dump(exclude_none=True)
+            data['category_id'] = category_id(db, data.pop('category'))
+            key = data['key']
+            old = db.execute('SELECT 1 FROM link_groups WHERE key=?', (key,)).fetchone()
+            save_group(db, data, key if old else None, restoring=True)
     return counts

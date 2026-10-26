@@ -37,20 +37,20 @@ function card(l) {
 }
 function section(name, items, cname = '', pinned = false, source = null) {
   const id = pinned ? 'pinned' : String(source.id), selected = sectionNetworks.get(id) || '';
-  const mixed = pinned ? links.some(l => l.pinned && l.network === 'lan') && links.some(l => l.pinned && l.network === 'public') : source.lan_count > 0 && source.public_count > 0;
+  const mixed = pinned ? links.some(l => window.NavGroups.pinned(l) && l.network === 'lan') && links.some(l => window.NavGroups.pinned(l) && l.network === 'public') : source.lan_count > 0 && source.public_count > 0;
   const filters = mixed ? `<div class="section-networks" role="group" aria-label="${e(name)}网络筛选">${[['','全部'],['lan','内网'],['public','公网']].map(([value,label]) => `<button type="button" data-section-id="${id}" data-section-network="${value}" aria-pressed="${selected === value}">${label}</button>`).join('')}</div>` : '';
   const empty = selected || localQuery() || $('#network-filter').value || $('#env-filter').value || organization ? '<div class="empty"><span>没有符合条件的网址</span><button data-clear-filters>清除筛选</button></div>' : `<div class="empty"><button data-add="${e(cname)}">＋ 添加网址</button></div>`;
-  return `<section data-section="${id}"><div class="section-head"><span class="section-symbol">${pinned ? '☆' : '▱'}</span><h2>${e(name)}</h2><small>${items.length}</small>${filters}${!pinned ? `<div class="section-actions"><button type="button" data-batch-category="${source.id}" aria-label="批量编辑${e(cname)}" title="批量编辑"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6h11M4 11h6M4 16h5M15 12l3-3 3 3-7 7-4 1 1-4z"/></svg></button><button type="button" data-sort-category="${source.id}" aria-label="${e(cname)}按名称排序" title="按名称排序">↕</button><button type="button" class="section-add" data-add="${e(cname)}" aria-label="在${e(cname)}添加网址" title="添加网址">＋</button></div>` : ''}</div>${items.length ? `<div class="grid">${items.map(card).join('')}</div>` : empty}</section>`;
+  return `<section data-section="${id}"><div class="section-head"><span class="section-symbol">${pinned ? '☆' : '▱'}</span><h2>${e(name)}</h2><small>${items.length}</small>${filters}${!pinned ? `<div class="section-actions"><button type="button" data-batch-category="${source.id}" aria-label="批量编辑${e(cname)}" title="批量编辑"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 6h11M4 11h6M4 16h5M15 12l3-3 3 3-7 7-4 1 1-4z"/></svg></button><button type="button" data-sort-category="${source.id}" aria-label="${e(cname)}按名称排序" title="按名称排序">↕</button><button type="button" class="section-add" data-add="${e(cname)}" aria-label="在${e(cname)}添加网址" title="添加网址">＋</button></div>` : ''}</div>${items.length ? `<div class="grid">${window.NavGroups.render(items, card)}</div>` : empty}</section>`;
 }
 function render() {
   const visible = links.filter(l => { const selected = sectionNetworks.get(String(l.category_id)); return !selected || selected === l.network; });
-  nav(visible.filter(l => !l.pinned || !sectionNetworks.get('pinned') || sectionNetworks.get('pinned') === l.network));
+  nav(visible.filter(l => !window.NavGroups.pinned(l) || !sectionNetworks.get('pinned') || sectionNetworks.get('pinned') === l.network));
   const filtering = localQuery() || organization || $('#network-filter').value || $('#env-filter').value;
   let html = '';
-  const pinned = visible.filter(l => l.pinned && (!sectionNetworks.get('pinned') || sectionNetworks.get('pinned') === l.network));
-  if (pinned.length || (sectionNetworks.get('pinned') && links.some(l => l.pinned))) html += section('常用置顶', pinned, '', true);
+  const pinned = visible.filter(l => window.NavGroups.pinned(l) && (!sectionNetworks.get('pinned') || sectionNetworks.get('pinned') === l.network));
+  if (pinned.length || (sectionNetworks.get('pinned') && links.some(l => window.NavGroups.pinned(l)))) html += section('常用置顶', pinned, '', true);
   for (const c of categories.filter(c => !category || c.name === category)) {
-    const items = visible.filter(l => l.category === c.name && !l.pinned);
+    const items = visible.filter(l => l.category === c.name && !window.NavGroups.pinned(l));
     if (items.length || sectionNetworks.get(String(c.id)) || !filtering) html += section(c.name, items, c.name, false, c);
   }
   if (!html) html = filtering ? '<div class="empty-results"><p>没有找到相关网址</p><button data-clear-filters>清除筛选</button></div>' : '<div class="empty-results"><p>还没有收藏</p><button id="first-category">添加分类</button></div>';
@@ -62,9 +62,9 @@ async function refresh() {
   $('#sections').setAttribute('aria-busy', 'true');
   try {
     const query = new URLSearchParams({q:requestedQuery, category, organization, network:$('#network-filter').value, environment:$('#env-filter').value});
-    const [c, l] = await Promise.all([api('/categories'), api('/links?' + query)]);
+    const [c, l, g] = await Promise.all([api('/categories'), api('/links?' + query), api('/groups')]);
     if (id !== generation || requestedQuery !== localQuery()) return;
-    categories = c.data; links = l.data; lastSearchQuery = requestedQuery; lastSearchCount = links.length; $('#load-error').hidden = true; render(); updateSearchSuggestions();
+    categories = c.data; links = l.data; window.NavGroups.set(g.data); lastSearchQuery = requestedQuery; lastSearchCount = links.length; $('#load-error').hidden = true; render(); updateSearchSuggestions();
   } catch (err) { $('#load-error').hidden = false; $('#load-error span').textContent = err.message; }
   finally { if (id === generation) $('#sections').setAttribute('aria-busy', 'false'); }
 }
@@ -113,7 +113,7 @@ $('#sections').addEventListener('click', async event => {
   const sort = event.target.closest('[data-sort-category]');
   if (sort) { await sortLinks(sort, categories.find(c => c.id === Number(sort.dataset.sortCategory))); return; }
   const batch = event.target.closest('[data-batch-category]');
-  if (batch) { window.NavBatch.open(categories.find(c => c.id === Number(batch.dataset.batchCategory)), {api,write,refresh,toast,confirm:confirmDialog,categories}); return; }
+  if (batch) { window.NavBatch.open(categories.find(c => c.id === Number(batch.dataset.batchCategory)), {api,write,refresh,toast,confirm:confirmDialog,categories,groups:window.NavGroups}); return; }
   const add = event.target.closest('[data-add]'); if (add) { openLink(null, add.dataset.add); return; }
   if (event.target.id === 'first-category') { showCategories(); return; }
   if (event.target.closest('[data-clear-filters]')) { $('#search').value = ''; sectionNetworks.clear(); organization = ''; $('#network-filter').value = ''; $('#env-filter').value = ''; document.querySelectorAll('[data-org]').forEach(b => b.classList.toggle('active', b.dataset.org === '')); await refresh(); return; }
@@ -132,7 +132,7 @@ $('#sections').addEventListener('click', async event => {
     }
     else if (b.dataset.action === 'delete') confirmDialog('删除网址', `删除“${link.name}”？`, async () => { await write('/links/'+encodeURIComponent(link.key),'DELETE',{}); await refresh(); toast('网址已删除'); });
     else if (b.dataset.action === 'pin') { await write('/links/'+encodeURIComponent(link.key),'PATCH',{pinned:!link.pinned}); await refresh(); }
-    else { const all = (await api('/links')).data.filter(l => link.pinned ? l.pinned : !l.pinned && l.category_id === link.category_id), index = all.findIndex(l => l.key === link.key), next = index + (b.dataset.action === 'up' ? -1 : 1); if (next < 0 || next >= all.length) return; await write('/links/move','POST',{key:link.key,before_key:all[b.dataset.action === 'up' ? next : next+1]?.key || null}); await refresh(); }
+    else { const all = window.NavGroups.entities((await api('/links')).data).filter(l => link.pinned ? l.pinned : !l.pinned && l.category_id === link.category_id), index = all.findIndex(l => l.key === link.key), next = index + (b.dataset.action === 'up' ? -1 : 1); if (next < 0 || next >= all.length) return; await write('/cards/move','POST',{key:link.key,before_key:all[b.dataset.action === 'up' ? next : next+1]?.key || null}); await refresh(); }
   } catch (err) { toast(err.message); }
 });
 // Sort the complete category contents, including items hidden by search/network filters.
@@ -140,11 +140,13 @@ const nameOrder = new Intl.Collator('zh-Hans-CN', {numeric:true, sensitivity:'ba
 async function sortLinks(button, selected = null) {
   button.disabled = true;
   try {
-    const all = (await api('/links' + (selected ? '?category='+encodeURIComponent(selected.name) : ''))).data;
+    const [records,groupData] = await Promise.all([api('/links' + (selected ? '?category='+encodeURIComponent(selected.name) : '')),api('/groups')]);
+    window.NavGroups.set(groupData.data);
+    const all = window.NavGroups.entities(records.data);
     if (all.length < 2) { toast('网址不足 2 个'); return; }
     const compare = (a,b) => nameOrder.compare(a.name,b.name) || a.key.localeCompare(b.key);
     const sorted = [...all.filter(l => l.pinned).sort(compare), ...categories.flatMap(c => all.filter(l => !l.pinned && l.category_id === c.id).sort(compare))];
-    await write('/links/reorder','POST',{keys:sorted.map(l => l.key),complete:true,category_id:selected?.id || null});
+    await write('/cards/reorder','POST',{keys:sorted.map(l => l.key),complete:true,category_id:selected?.id || null});
     await refresh(); toast('已按名称排序');
   } catch (err) { toast(err.message); } finally { button.disabled = false; }
 }
@@ -183,7 +185,7 @@ document.addEventListener('drop', async event => {
       event.preventDefault();
       const card = event.target.closest('.link-card'), pinned = target.dataset.section === 'pinned';
       if (card?.dataset.key === source.key) return;
-      await write('/links/move','POST',{key:source.key,before_key:card?.dataset.key || null,pinned,...(pinned ? {} : {category_id:Number(target.dataset.section)})});
+      await write('/cards/move','POST',{key:source.key,before_key:card?.dataset.key || null,pinned,...(pinned ? {} : {category_id:Number(target.dataset.section)})});
     } else {
       const target = event.target.closest('#category-nav [data-cid],#category-list [data-cid]'); if (!target) return;
       event.preventDefault(); const cid = Number(target.dataset.cid); if (cid === source.id) return;
@@ -252,5 +254,6 @@ document.addEventListener('click',event=>{const b=event.target.closest('.menu-pa
 $('#logout').onclick=async()=>{try{await write('/auth/logout','POST',{});csrf='';links=[];$('#sections').replaceChildren();showLogin();}catch(err){toast(err.message);}};
 $('#export').onclick=async()=>{try{const data=await api('/export');const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=`导航-${new Date().toISOString().slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(err){toast(err.message);}};
 $('#import').onclick=()=>$('#import-file').click();
-$('#import-file').onchange=async event=>{const file=event.target.files[0];event.target.value='';if(!file)return;try{if(file.size>4*1024*1024)throw new Error('文件超过 4 MB');const data=JSON.parse(await file.text());if(data.version!==1||!Array.isArray(data.links)||!Array.isArray(data.categories))throw new Error('请选择本站导出的 JSON 文件');confirmDialog('导入数据',`${data.categories.length} 个分类、${data.links.length} 个网址。同一标识的记录将按文件更新，包括分类、置顶、图标和排序；其余记录保留。`,async()=>{const r=await write('/import','POST',data);await refresh();toast(`已新增 ${r.data.created} 条，更新 ${r.data.updated} 条`);});}catch(err){toast(err instanceof SyntaxError?'文件不是有效的 JSON':err.message);}};
+$('#import-file').onchange=async event=>{const file=event.target.files[0];event.target.value='';if(!file)return;try{if(file.size>4*1024*1024)throw new Error('文件超过 4 MB');const data=JSON.parse(await file.text());if(![1,2].includes(data.version)||!Array.isArray(data.links)||!Array.isArray(data.categories))throw new Error('请选择本站导出的 JSON 文件');confirmDialog('导入数据',`${data.categories.length} 个分类、${data.links.length} 个网址。同一标识的记录将按文件更新，包括分类、置顶、图标和排序；其余记录保留。`,async()=>{const r=await write('/import','POST',data);await refresh();toast(`已新增 ${r.data.created} 条，更新 ${r.data.updated} 条`);});}catch(err){toast(err instanceof SyntaxError?'文件不是有效的 JSON':err.message);}};
+window.NavGroups.init({api,write,refresh,toast,confirm:confirmDialog,edit:openLink,categories:()=>categories});
 (async()=>{try{const r=await api('/auth/me');csrf=r.data.csrf;await enter();}catch{showLogin();}})();

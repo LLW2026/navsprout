@@ -10,9 +10,12 @@ from pathlib import Path
 def check(db):
     if db.execute('PRAGMA integrity_check').fetchone()[0] != 'ok' or db.execute('PRAGMA foreign_key_check').fetchall():
         raise ValueError('数据库完整性检查未通过')
-    if db.execute('PRAGMA user_version').fetchone()[0] != 1:
+    if db.execute('PRAGMA user_version').fetchone()[0] not in (1, 2):
         raise ValueError('数据库版本不匹配')
-    if not {'categories', 'links', 'sessions'} <= {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
+    required = {'categories', 'links', 'sessions'}
+    if db.execute('PRAGMA user_version').fetchone()[0] == 2:
+        required |= {'link_groups', 'group_members'}
+    if not required <= {r[0] for r in db.execute("SELECT name FROM sqlite_master WHERE type='table'")}:
         raise ValueError('不是导航数据库')
 
 

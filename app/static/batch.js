@@ -54,6 +54,10 @@
   apply.onclick = () => {
     if (!selected().length || busy || !operation.value) return;
     const action = operation.value, items = action === 'delete' ? payload().map(({key}) => ({key})) : payload(), categoryId = Number(target.value);
+    if (action === 'group') {
+      if (items.length < 2) { error(new Error('请选择至少两个网址')); return; }
+      actions.groups.create(items.map(item=>item.key)).then(()=>dialog.close()).catch(error); return;
+    }
     if (action !== 'delete' && !form.reportValidity()) return;
     if (action === 'move' && !categoryId) { error(new Error('请选择目标分类')); return; }
     if (action === 'delete') {
