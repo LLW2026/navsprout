@@ -17,8 +17,44 @@
     document.documentElement.dataset.themePreference = selected;
     document.dispatchEvent(new CustomEvent('nav-theme-change', {detail: selected}));
   }
+  function readTransparency() {
+    try {
+      const raw = localStorage.getItem('nav-card-transparency');
+      if (raw === null || !raw.trim()) return null;
+      const value = Number(raw);
+      return Number.isFinite(value) && value >= 0 && value <= 100 ? Math.round(value) : null;
+    } catch { return null; }
+  }
+  let transparency = readTransparency();
+  function applyTransparency(value) {
+    transparency = value;
+    const root = document.documentElement;
+    if (value === null) {
+      delete root.dataset.cardTransparency;
+      root.style.removeProperty('--nav-card-transparency');
+    } else {
+      root.dataset.cardTransparency = String(value);
+      root.style.setProperty('--nav-card-transparency', String(value));
+    }
+    document.dispatchEvent(new CustomEvent('nav-card-transparency-change'));
+  }
+  function defaultTransparency() {
+    const color = getComputedStyle(document.documentElement).getPropertyValue('--surface').trim();
+    const alpha = /^#[0-9a-f]{6}([0-9a-f]{2})$/i.exec(color);
+    return alpha ? Math.round((1 - parseInt(alpha[1], 16) / 255) * 100) : 0;
+  }
   window.NavTheme = {
     catalog,
+    getTransparency: () => transparency ?? defaultTransparency(),
+    setTransparency(value) {
+      const number = Number(value);
+      const normalized = Number.isFinite(number) ? Math.round(Math.max(0, Math.min(100, number))) : null;
+      applyTransparency(normalized);
+      try {
+        if (normalized === null) localStorage.removeItem('nav-card-transparency');
+        else localStorage.setItem('nav-card-transparency', String(normalized));
+      } catch {}
+    },
     get: () => selected,
     set(value) {
       apply(value);
@@ -28,6 +64,8 @@
   media.addEventListener('change', () => { if (selected === 'auto') apply(selected); });
   window.addEventListener('storage', event => {
     if (event.key === 'nav-theme' || event.key === null) apply(event.newValue || 'pine');
+    if (event.key === 'nav-card-transparency' || event.key === null) applyTransparency(readTransparency());
   });
   apply(selected);
+  applyTransparency(transparency);
 })();

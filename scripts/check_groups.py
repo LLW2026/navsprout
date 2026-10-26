@@ -58,6 +58,7 @@ def main():
                 else:
                     raise RuntimeError('临时服务启动超时')
                 subprocess.run(['node', 'tests/groups.cjs'], env=env, check=True)
+                subprocess.run(['node', 'tests/transparency.cjs'], env=env, check=True)
                 # Group checks clean their fixtures; keep the original order regression isolated too.
                 subprocess.run(['node', 'tests/appearance-order.cjs'], env=env, check=True)
             finally:

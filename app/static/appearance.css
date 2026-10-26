@@ -179,3 +179,12 @@ footer { gap: 12px; flex-wrap: wrap; }
 .group-main[aria-expanded="true"] [data-group-chevron] svg { transform:rotate(180deg); }
 @keyframes group-chevron-hint { 0%,100% { opacity:.45; transform:translateY(-1px); } 50% { opacity:1; transform:translateY(2px); } }
 :root[data-motion="off"] [data-group-chevron] svg { animation:none; }
+
+:root[data-card-transparency] .link-card { background-color:rgb(from var(--surface) r g b / calc(1 - var(--nav-card-transparency) / 100)); }
+.theme-choices { top:0; transform:none; transform-origin:right top; animation:theme-panel-expand .15s ease-out; }
+@keyframes theme-panel-expand { from { opacity:0; transform:translateX(6px) scaleX(.96); } to { opacity:1; transform:none; } }
+.card-transparency-control { grid-column:1 / -1; display:grid; gap:7px; margin:4px 0 0; padding-top:8px; border-top:1px solid var(--line); font-size:11px; }
+.card-transparency-heading { display:flex; justify-content:space-between; align-items:center; gap:2px; }
+.card-transparency-heading output { font-variant-numeric:tabular-nums; }
+.card-transparency-control input { width:100%; min-width:0; height:20px; padding:0; margin:0; border:0; background:transparent; accent-color:var(--green); cursor:pointer; }
+@media (max-width:700px) { .card-transparency-heading { font-size:10px; } .card-transparency-heading output { font-size:9px; } }

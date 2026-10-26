@@ -52,6 +52,7 @@ def main():
                     raise RuntimeError("Temporary server did not start")
                 print("PASS 隔离初始化：随机密码、受保护配置、仅本机允许来源", flush=True)
                 subprocess.run(["node", "tests/groups.cjs"], cwd=ROOT, env=environment, check=True)
+                subprocess.run(["node", "tests/transparency.cjs"], cwd=ROOT, env=environment, check=True)
                 subprocess.run(["node", "tests/appearance-order.cjs"], cwd=ROOT, env=environment, check=True)
                 categories = ["我的应用", "开发工具", "工作网站", "常用资料", "设计灵感", "工具收藏"]
                 names = ["项目看板", "文档助手", "服务监控", "文件管理", "工作台", "任务清单", "日程安排", "资料检索", "代码仓库", "数据报告", "图片工具", "消息中心"]

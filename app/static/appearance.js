@@ -10,7 +10,23 @@
       button.innerHTML = `<span class="theme-swatch swatch-${value}" aria-hidden="true"></span><span class="theme-name">${name}</span><span class="theme-check" aria-hidden="true">✓</span>`;
       panel.append(button);
     }
+    const control = document.createElement('label');
+    control.className = 'card-transparency-control';
+    control.innerHTML = '<span class="card-transparency-heading"><span>卡片透明度</span><output aria-live="off"></output></span><input type="range" min="0" max="100" step="1" data-card-transparency aria-label="卡片透明度">';
+    control.querySelector('input').addEventListener('input', event => window.NavTheme.setTransparency(event.target.value));
+    panel.append(control);
   });
+  function syncTransparency() {
+    const value = window.NavTheme.getTransparency();
+    document.querySelectorAll('.card-transparency-control').forEach(control => {
+      control.querySelector('input').value = String(value);
+      control.querySelector('input').setAttribute('aria-valuetext', value + '%');
+      control.querySelector('output').textContent = value + '%';
+    });
+  }
+  document.addEventListener('nav-card-transparency-change', syncTransparency);
+  document.addEventListener('nav-theme-change', syncTransparency);
+  syncTransparency();
   const defaults = {mode: 'theme', interval: 1440, motion: true, overlay: 'none', id: '', daily_id: '', changed: 0};
   const intervals = [0, 1, 5, 15, 60, 1440];
   function read() {
